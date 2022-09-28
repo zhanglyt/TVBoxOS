@@ -311,10 +311,10 @@ public class PlayActivity extends BaseActivity {
     void setSubtitleViewTextStyle(int style) {
         if (style == 0) {
             mController.mSubtitleView.setTextColor(getBaseContext().getResources().getColorStateList(R.color.color_FFFFFF));
-            mController.mSubtitleView.setShadowLayer(2, 1, 1, R.color.color_CC000000);
+            mController.mSubtitleView.setShadowLayer(3, 2, 2, R.color.color_CC000000);
         } else if (style == 1) {
             mController.mSubtitleView.setTextColor(getBaseContext().getResources().getColorStateList(R.color.color_FFB6C1));
-            mController.mSubtitleView.setShadowLayer(2, 1, 1, R.color.color_FFFFFF);
+            mController.mSubtitleView.setShadowLayer(3, 2, 2, R.color.color_FFFFFF);
         }
     }
 
@@ -770,8 +770,8 @@ public class PlayActivity extends BaseActivity {
 
         stopParse();
         if(mVideoView!=null) mVideoView.release();
-        String subtitleCacheKey = mVodInfo.sourceKey + "-" + mVodInfo.id + "-" + mVodInfo.playFlag + "-" + mVodInfo.playIndex + "-subt";
-        String progressKey = mVodInfo.sourceKey + mVodInfo.id + mVodInfo.playFlag + mVodInfo.playIndex;
+        String subtitleCacheKey = mVodInfo.sourceKey + "-" + mVodInfo.id + "-" + mVodInfo.playFlag + "-" + mVodInfo.playIndex+ "-" + vs.name + "-subt";
+        String progressKey = mVodInfo.sourceKey + mVodInfo.id + mVodInfo.playFlag + mVodInfo.playIndex + vs.name;
         //重新播放清除现有进度
         if (reset) {
             CacheManager.delete(MD5.string2MD5(progressKey), 0);
@@ -1216,6 +1216,9 @@ public class PlayActivity extends BaseActivity {
 
     boolean checkVideoFormat(String url) {
         if (sourceBean.getType() == 3) {
+            if (url.contains("=http") || url.contains(".html")) {
+                return false;
+            }
             Spider sp = ApiConfig.get().getCSP(sourceBean);
             if (sp != null && sp.manualVideoCheck())
                 return sp.isVideoFormat(url);
@@ -1368,6 +1371,7 @@ public class PlayActivity extends BaseActivity {
                     } else {
                         playUrl(url, null);
                     }
+                    mController.setUrlTitle("视频地址："+url);
                     stopLoadWebView(false);
                 }
             }
@@ -1553,6 +1557,7 @@ public class PlayActivity extends BaseActivity {
                     } else {
                         playUrl(url, null);
                     }
+                    mController.setUrlTitle("视频地址："+url);
                     stopLoadWebView(false);
                 }
             }
