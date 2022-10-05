@@ -61,6 +61,7 @@ import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.LOG;
 import com.github.tvbox.osc.util.MD5;
 import com.github.tvbox.osc.util.PlayerHelper;
+import com.github.tvbox.osc.util.VideoParseRuler;
 import com.github.tvbox.osc.util.XWalkUtils;
 import com.github.tvbox.osc.util.thunder.Thunder;
 import com.github.tvbox.osc.viewmodel.SourceViewModel;
@@ -110,6 +111,8 @@ public class PlayActivity extends BaseActivity {
     private SourceViewModel sourceViewModel;
     private Handler mHandler;
 
+    private long videoDuration = -1;
+
     @Override
     protected int getLayoutResID() {
         return R.layout.activity_play;
@@ -146,6 +149,11 @@ public class PlayActivity extends BaseActivity {
         ProgressManager progressManager = new ProgressManager() {
             @Override
             public void saveProgress(String url, long progress) {
+                if (videoDuration != -1) {
+                    if (videoDuration <= 6000) {
+                        return;
+                    }
+                }
                 CacheManager.save(MD5.string2MD5(url), progress);
             }
 
@@ -222,9 +230,22 @@ public class PlayActivity extends BaseActivity {
             @Override
             public void prepared() {
                 initSubtitleView();
+                initVideoDurationSomeThing();
             }
         });
         mVideoView.setVideoController(mController);
+    }
+
+    void initVideoDurationSomeThing() {
+        videoDuration = mVideoView.getMediaPlayer().getDuration();
+        if (videoDuration <= 6000) {
+            mController.mPlayerSpeedBtn.setVisibility(View.GONE);
+            mController.mPlayerTimeStartEndText.setVisibility(View.GONE);
+            mController.mPlayerTimeStartBtn.setVisibility(View.GONE);
+            mController.mPlayerTimeSkipBtn.setVisibility(View.GONE);
+            mController.mPlayerTimeStepBtn.setVisibility(View.GONE);
+            mController.mPlayerTimeResetBtn.setVisibility(View.GONE);
+        }
     }
 
     //设置字幕
@@ -1232,7 +1253,7 @@ public class PlayActivity extends BaseActivity {
             if (sp != null && sp.manualVideoCheck())
                 return sp.isVideoFormat(url);
         }
-        return DefaultConfig.isVideoFormat(url);
+        return VideoParseRuler.checkIsVideoForParse(webUrl, url);
     }
 
     class MyWebView extends WebView {
@@ -1359,7 +1380,6 @@ public class PlayActivity extends BaseActivity {
         }
 
         WebResourceResponse checkIsVideo(String url, HashMap<String, String> headers) {
-            LOG.i("shouldInterceptRequest url:" + url);
             if (url.endsWith("/favicon.ico")) {
                 if (url.startsWith("http://127.0.0.1")) {
                     return new WebResourceResponse("image/x-icon", "UTF-8", null);
@@ -1408,11 +1428,19 @@ public class PlayActivity extends BaseActivity {
         @Override
         @TargetApi(Build.VERSION_CODES.LOLLIPOP)
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-            String url = "";
-            try {
-                url = request.getUrl().toString();
-            } catch (Throwable th) {
-
+            String url = request.getUrl().toString();
+            LOG.i("shouldInterceptRequest url:" + url);
+            //css与jpg等无效资源避免请求远程直接返回response
+            String uselessmMimeType = null;
+            if (url.contains(".css")) {
+                uselessmMimeType = "text/css";
+            } else if (url.contains(".jpg")) {
+                uselessmMimeType = "image/jpeg";
+            } else if (url.contains(".png")) {
+                uselessmMimeType = "image/png";
+            }
+            if (uselessmMimeType != null && !uselessmMimeType.isEmpty()) {
+                return new WebResourceResponse(uselessmMimeType, "UTF-8", null);
             }
             HashMap<String, String> webHeaders = new HashMap<>();
             try {
@@ -1420,6 +1448,7 @@ public class PlayActivity extends BaseActivity {
                 for (String k : hds.keySet()) {
                     if (k.equalsIgnoreCase("user-agent")
                             || k.equalsIgnoreCase("referer")
+                            || k.equalsIgnoreCase("accept")
                             || k.equalsIgnoreCase("origin")) {
                         webHeaders.put(k, hds.get(k));
                     }
@@ -1541,6 +1570,18 @@ public class PlayActivity extends BaseActivity {
                 }
                 return null;
             }
+            //css与jpg等无效资源避免请求远程直接返回response
+            String uselessmMimeType = null;
+            if (url.contains(".css")) {
+                uselessmMimeType = "text/css";
+            } else if (url.contains(".jpg")) {
+                uselessmMimeType = "image/jpeg";
+            } else if (url.contains(".png")) {
+                uselessmMimeType = "image/png";
+            }
+            if (uselessmMimeType != null && !uselessmMimeType.isEmpty()) {
+                return createXWalkWebResourceResponse(uselessmMimeType, "UTF-8", null);
+            }
             boolean ad;
             if (!loadedUrls.containsKey(url)) {
                 ad = AdBlocker.isAd(url);
@@ -1556,6 +1597,7 @@ public class PlayActivity extends BaseActivity {
                         for (String k : hds.keySet()) {
                             if (k.equalsIgnoreCase("user-agent")
                                     || k.equalsIgnoreCase("referer")
+                                    || k.equalsIgnoreCase("accept")
                                     || k.equalsIgnoreCase("origin")) {
                                 webHeaders.put(k, hds.get(k));
                             }
