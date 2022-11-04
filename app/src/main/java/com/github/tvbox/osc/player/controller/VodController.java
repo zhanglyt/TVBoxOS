@@ -134,6 +134,8 @@ public class VodController extends BaseController {
     Runnable myRunnable;
     int myHandleSeconds = 6000;//闲置多少毫秒秒关闭底栏  默认6秒
 
+    int videoPlayState = 0;
+
     private Runnable myRunnable2 = new Runnable() {
         @Override
         public void run() {
@@ -191,6 +193,7 @@ public class VodController extends BaseController {
         mZimuBtn = findViewById(R.id.zimu_select);
         mAudioTrackBtn = findViewById(R.id.audio_track_select);
         mLandscapePortraitBtn = findViewById(R.id.landscape_portrait);
+
         initSubtitleInfo();
 
         myHandle = new Handler();
@@ -320,13 +323,14 @@ public class VodController extends BaseController {
                     mPlayerConfig.put("sp", speed);
                     updatePlayerCfgView();
                     listener.updatePlayerCfg();
+                    speed_old = speed;
                     mControlWrapper.setSpeed(speed);
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
             }
         });
-        // takagen99: Add long press to reset speed
+
         mPlayerSpeedBtn.setOnLongClickListener(new OnLongClickListener() {
             @Override
             public boolean onLongClick(View view) {
@@ -334,6 +338,7 @@ public class VodController extends BaseController {
                     mPlayerConfig.put("sp", 1.0f);
                     updatePlayerCfgView();
                     listener.updatePlayerCfg();
+                    speed_old = 1.0f;
                     mControlWrapper.setSpeed(1.0f);
                 } catch (JSONException e) {
                     e.printStackTrace();
@@ -604,14 +609,17 @@ public class VodController extends BaseController {
                 hideBottom();
             }
         });
-        initLandscapePortraitBtnInfo();
     }
 
-    void initLandscapePortraitBtnInfo() {
-        double screenSqrt = ScreenUtils.getSqrt(mActivity);
-        if (screenSqrt < 20.0) {
-            mLandscapePortraitBtn.setVisibility(View.VISIBLE);
-            mLandscapePortraitBtn.setText("竖屏");
+    public void initLandscapePortraitBtnInfo() {
+        if(mControlWrapper!=null){
+            int width = mControlWrapper.getVideoSize()[0];
+            int height = mControlWrapper.getVideoSize()[1];
+            double screenSqrt = ScreenUtils.getSqrt(mActivity);
+            if (screenSqrt < 20.0 && width < height) {
+                mLandscapePortraitBtn.setVisibility(View.VISIBLE);
+                mLandscapePortraitBtn.setText("竖屏");
+            }
         }
     }
 
@@ -792,6 +800,7 @@ public class VodController extends BaseController {
     @Override
     protected void onPlayStateChanged(int playState) {
         super.onPlayStateChanged(playState);
+        videoPlayState = playState;
         switch (playState) {
             case VideoView.STATE_IDLE:
                 break;
@@ -878,6 +887,47 @@ public class VodController extends BaseController {
             }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+
+    private boolean fromLongPress;
+    private float speed_old = 1.0f;
+    @Override
+    public void onLongPress(MotionEvent e) {
+        if (videoPlayState!=VideoView.STATE_PAUSED) {
+            fromLongPress = true;
+            try {
+                speed_old = (float) mPlayerConfig.getDouble("sp");
+                float speed = 3.0f;
+                mPlayerConfig.put("sp", speed);
+                updatePlayerCfgView();
+                mBottomRoot.setVisibility(VISIBLE);
+                listener.updatePlayerCfg();
+                mControlWrapper.setSpeed(speed);
+            } catch (JSONException f) {
+                f.printStackTrace();
+            }
+        }
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent e) {
+        if (e.getAction() == MotionEvent.ACTION_UP) {
+            if (fromLongPress) {
+                fromLongPress =false;
+                try {
+                    float speed = speed_old;
+                    mPlayerConfig.put("sp", speed);
+                    updatePlayerCfgView();
+                    mBottomRoot.setVisibility(GONE);
+                    listener.updatePlayerCfg();
+                    mControlWrapper.setSpeed(speed);
+                } catch (JSONException f) {
+                    f.printStackTrace();
+                }
+            }
+        }
+        return super.onTouchEvent(e);
     }
 
     @Override
