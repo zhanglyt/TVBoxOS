@@ -2,6 +2,7 @@ package com.github.tvbox.osc.ui.adapter;
 
 import android.text.TextUtils;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -9,9 +10,12 @@ import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.chad.library.adapter.base.BaseViewHolder;
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.api.ApiConfig;
+import com.github.tvbox.osc.bean.SourceBean;
 import com.github.tvbox.osc.bean.VodInfo;
 import com.github.tvbox.osc.picasso.RoundTransformation;
 import com.github.tvbox.osc.util.DefaultConfig;
+import com.github.tvbox.osc.util.HawkConfig;
+import com.github.tvbox.osc.util.ImgUtil;
 import com.github.tvbox.osc.util.MD5;
 import com.squareup.picasso.Picasso;
 
@@ -31,6 +35,14 @@ public class HistoryAdapter extends BaseQuickAdapter<VodInfo, BaseViewHolder> {
 
     @Override
     protected void convert(BaseViewHolder helper, VodInfo item) {
+    	// takagen99: Add Delete Mode
+        FrameLayout tvDel = helper.getView(R.id.delFrameLayout);
+        if (HawkConfig.hotVodDelete) {
+            tvDel.setVisibility(View.VISIBLE);
+        } else {
+            tvDel.setVisibility(View.GONE);
+        }
+    
         TextView tvYear = helper.getView(R.id.tvYear);
         /*if (item.year <= 0) {
             tvYear.setVisibility(View.GONE);
@@ -38,7 +50,13 @@ public class HistoryAdapter extends BaseQuickAdapter<VodInfo, BaseViewHolder> {
             tvYear.setText(String.valueOf(item.year));
             tvYear.setVisibility(View.VISIBLE);
         }*/
-        tvYear.setText(ApiConfig.get().getSource(item.sourceKey).getName());
+        SourceBean bean =  ApiConfig.get().getSource(item.sourceKey);
+        if(bean!=null){
+            tvYear.setText(bean.getName());
+        }else {
+            tvYear.setText("搜");
+//            tvYear.setVisibility(View.GONE);
+        }
         /*TextView tvLang = helper.getView(R.id.tvLang);
         if (TextUtils.isEmpty(item.lang)) {
             tvLang.setVisibility(View.GONE);
@@ -75,15 +93,16 @@ public class HistoryAdapter extends BaseQuickAdapter<VodInfo, BaseViewHolder> {
         if (!TextUtils.isEmpty(item.pic)) {
             Picasso.get()
                     .load(DefaultConfig.checkReplaceProxy(item.pic))
-                    .transform(new RoundTransformation(MD5.string2MD5(item.pic + item.name))
+                    .transform(new RoundTransformation(MD5.string2MD5(item.pic))
                             .centerCorp(true)
-                            .override(AutoSizeUtils.mm2px(mContext, 300), AutoSizeUtils.mm2px(mContext, 400))
+                            .override(AutoSizeUtils.mm2px(mContext, 240), AutoSizeUtils.mm2px(mContext, 336))
                             .roundRadius(AutoSizeUtils.mm2px(mContext, 10), RoundTransformation.RoundType.ALL))
                     .placeholder(R.drawable.img_loading_placeholder)
-                    .error(R.drawable.img_loading_placeholder)
+                    .noFade()
+                    .error(ImgUtil.createTextDrawable(item.name))
                     .into(ivThumb);
         } else {
-            ivThumb.setImageResource(R.drawable.img_loading_placeholder);
+            ivThumb.setImageDrawable(ImgUtil.createTextDrawable(item.name));
         }
     }
 }

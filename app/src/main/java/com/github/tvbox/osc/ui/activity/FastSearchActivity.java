@@ -25,15 +25,12 @@ import com.github.tvbox.osc.ui.adapter.FastListAdapter;
 import com.github.tvbox.osc.ui.adapter.FastSearchAdapter;
 import com.github.tvbox.osc.ui.adapter.SearchWordAdapter;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
+import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.SearchHelper;
 import com.github.tvbox.osc.util.js.JSEngine;
 import com.github.tvbox.osc.viewmodel.SourceViewModel;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.lzy.okgo.OkGo;
-import com.lzy.okgo.callback.AbsCallback;
-import com.lzy.okgo.model.Response;
+import com.orhanobut.hawk.Hawk;
 import com.owen.tvrecyclerview.widget.TvRecyclerView;
 import com.owen.tvrecyclerview.widget.V7GridLayoutManager;
 import com.owen.tvrecyclerview.widget.V7LinearLayoutManager;
@@ -42,7 +39,6 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -158,7 +154,7 @@ public class FastSearchActivity extends BaseActivity {
                 child.setFocusable(true);
                 child.setOnFocusChangeListener(focusChangeListener);
                 TextView t = (TextView) child;
-                if (t.getText() == "全部显示") {
+                if (t.getText() == "全部") {
                     t.requestFocus();
                 }
 //                if (child.isFocusable() && null == child.getOnFocusChangeListener()) {
@@ -258,7 +254,7 @@ public class FastSearchActivity extends BaseActivity {
     }
 
     private void filterResult(String spName) {
-        if (spName == "全部显示") {
+        if (spName == "全部") {
             mGridView.setVisibility(View.VISIBLE);
             mGridViewFilter.setVisibility(View.GONE);
             return;
@@ -277,40 +273,43 @@ public class FastSearchActivity extends BaseActivity {
 
     private void fenci() {
         if (!quickSearchWord.isEmpty()) return; // 如果经有分词了，不再进行二次分词
+        quickSearchWord.addAll(SearchHelper.splitWords(searchTitle));
+        List<String> words = new ArrayList<>(new HashSet<>(quickSearchWord));
+        EventBus.getDefault().post(new RefreshEvent(RefreshEvent.TYPE_QUICK_SEARCH_WORD, words));
         // 分词
-        OkGo.<String>get("http://api.pullword.com/get.php?source=" + URLEncoder.encode(searchTitle) + "&param1=0&param2=0&json=1")
-                .tag("fenci")
-                .execute(new AbsCallback<String>() {
-                    @Override
-                    public String convertResponse(okhttp3.Response response) throws Throwable {
-                        if (response.body() != null) {
-                            return response.body().string();
-                        } else {
-                            throw new IllegalStateException("网络请求错误");
-                        }
-                    }
-
-                    @Override
-                    public void onSuccess(Response<String> response) {
-                        String json = response.body();
-                        quickSearchWord.clear();
-                        try {
-                            for (JsonElement je : new Gson().fromJson(json, JsonArray.class)) {
-                                quickSearchWord.add(je.getAsJsonObject().get("t").getAsString());
-                            }
-                        } catch (Throwable th) {
-                            th.printStackTrace();
-                        }
-                        quickSearchWord.addAll(SearchHelper.splitWords(searchTitle));
-                        List<String> words = new ArrayList<>(new HashSet<>(quickSearchWord));
-                        EventBus.getDefault().post(new RefreshEvent(RefreshEvent.TYPE_QUICK_SEARCH_WORD, words));
-                    }
-
-                    @Override
-                    public void onError(Response<String> response) {
-                        super.onError(response);
-                    }
-                });
+//        OkGo.<String>get("http://api.pullword.com/get.php?source=" + URLEncoder.encode(searchTitle) + "&param1=0&param2=0&json=1")
+//                .tag("fenci")
+//                .execute(new AbsCallback<String>() {
+//                    @Override
+//                    public String convertResponse(okhttp3.Response response) throws Throwable {
+//                        if (response.body() != null) {
+//                            return response.body().string();
+//                        } else {
+//                            throw new IllegalStateException("网络请求错误");
+//                        }
+//                    }
+//
+//                    @Override
+//                    public void onSuccess(Response<String> response) {
+//                        String json = response.body();
+//                        quickSearchWord.clear();
+//                        try {
+//                            for (JsonElement je : new Gson().fromJson(json, JsonArray.class)) {
+//                                quickSearchWord.add(je.getAsJsonObject().get("t").getAsString());
+//                            }
+//                        } catch (Throwable th) {
+//                            th.printStackTrace();
+//                        }
+//                        quickSearchWord.addAll(SearchHelper.splitWords(searchTitle));
+//                        List<String> words = new ArrayList<>(new HashSet<>(quickSearchWord));
+//                        EventBus.getDefault().post(new RefreshEvent(RefreshEvent.TYPE_QUICK_SEARCH_WORD, words));
+//                    }
+//
+//                    @Override
+//                    public void onError(Response<String> response) {
+//                        super.onError(response);
+//                    }
+//                });
     }
 
     private void initData() {
@@ -347,7 +346,8 @@ public class FastSearchActivity extends BaseActivity {
             }
         }
         if (mSearchTitle != null) {
-            mSearchTitle.setText(String.format("搜索(%d/%d)", resultVods.size(), spNames.size()));
+//            mSearchTitle.setText(String.format("搜索(%d/%d)", resultVods.size(), startSearchNum));
+            mSearchTitle.setText(String.format("已搜索( %d )", resultVods.size()));
         }
     }
 
@@ -370,6 +370,14 @@ public class FastSearchActivity extends BaseActivity {
         searchFilterKey = "";
         isFilterMode = false;
         spNames.clear();
+
+        //写入历史记录
+        ArrayList<String> history = Hawk.get(HawkConfig.SEARCH_HISTORY, new ArrayList<String>());
+        if (!history.contains(title))
+            history.add(0, title);
+        if (history.size() > 10)
+            history.remove(10);
+        Hawk.put(HawkConfig.SEARCH_HISTORY, history);
 
         searchResult();
     }
@@ -403,7 +411,7 @@ public class FastSearchActivity extends BaseActivity {
         ArrayList<String> hots = new ArrayList<>();
 
         spListAdapter.setNewData(hots);
-        spListAdapter.addData("全部显示");
+        spListAdapter.addData("全部");
         for (SourceBean bean : searchRequestList) {
             if (!bean.isSearchable()) {
                 continue;

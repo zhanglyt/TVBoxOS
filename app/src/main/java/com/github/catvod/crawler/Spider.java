@@ -11,7 +11,7 @@ import java.util.List;
 
 import okhttp3.Dns;
 
-public abstract class Spider {
+public class Spider {
 
     public static JSONObject empty = new JSONObject();
 
@@ -106,6 +106,14 @@ public abstract class Spider {
      */
     public boolean manualVideoCheck() {
         return false;
+    }
+
+    /**
+     * 直播list
+     * @return
+     */
+    public String liveContent(String url) {
+        return "";
     }
 
     public static Dns safeDns() {
